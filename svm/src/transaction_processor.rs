@@ -1,19 +1,16 @@
 use {
-    crate::svm::{
-        account_loader::load_accounts, runtime_config::RuntimeConfig,
-        transaction_account_state_info::TransactionAccountStateInfo,
+    crate::{
+        account_loader::load_accounts, account_overrides::AccountOverrides,
+        runtime_config::RuntimeConfig, transaction_account_state_info::TransactionAccountStateInfo,
+        transaction_error_metrics::TransactionErrorMetrics,
     },
     log::debug,
     percentage::Percentage,
     solana_accounts_db::{
-        account_overrides::AccountOverrides,
         accounts::{LoadedTransaction, TransactionLoadResult},
-        accounts_file::MatchAccountOwnerError,
-        rent_collector::RentCollector,
-        transaction_error_metrics::TransactionErrorMetrics,
         transaction_results::{
-            inner_instructions_list_from_instruction_trace, DurableNonceFee,
-            TransactionCheckResult, TransactionExecutionDetails, TransactionExecutionResult,
+            DurableNonceFee, TransactionCheckResult, TransactionExecutionDetails,
+            TransactionExecutionResult,
         },
     },
     solana_measure::measure::Measure,
@@ -38,11 +35,13 @@ use {
         feature_set::FeatureSet,
         fee::FeeStructure,
         hash::Hash,
-        instruction::InstructionError,
+        inner_instruction::{InnerInstruction, InnerInstructionsList},
+        instruction::{CompiledInstruction, InstructionError, TRANSACTION_LEVEL_STACK_HEIGHT},
         loader_v4::{self, LoaderV4State, LoaderV4Status},
         message::SanitizedMessage,
         native_loader,
         pubkey::Pubkey,
+        rent_collector::RentCollector,
         saturating_add_assign,
         transaction::{self, SanitizedTransaction, TransactionError},
         transaction_context::{ExecutionRecord, TransactionContext},
@@ -70,11 +69,7 @@ pub struct LoadAndExecuteSanitizedTransactionsOutput {
 }
 
 pub trait TransactionProcessingCallback {
-    fn account_matches_owners(
-        &self,
-        account: &Pubkey,
-        owners: &[Pubkey],
-    ) -> std::result::Result<usize, MatchAccountOwnerError>;
+    fn account_matches_owners(&self, account: &Pubkey, owners: &[Pubkey]) -> Option<usize>;
 
     fn get_account_shared_data(&self, pubkey: &Pubkey) -> Option<AccountSharedData>;
 
@@ -340,7 +335,7 @@ impl<FG: ForkGraph> TransactionBatchProcessor<FG> {
                                 saturating_add_assign!(*count, 1);
                             }
                             Entry::Vacant(entry) => {
-                                if let Ok(index) =
+                                if let Some(index) =
                                     callbacks.account_matches_owners(key, program_owners)
                                 {
                                     program_owners
@@ -570,7 +565,7 @@ impl<FG: ForkGraph> TransactionBatchProcessor<FG> {
             });
 
         let inner_instructions = if enable_cpi_recording {
-            Some(inner_instructions_list_from_instruction_trace(
+            Some(Self::inner_instructions_list_from_instruction_trace(
                 &transaction_context,
             ))
         } else {
@@ -774,7 +769,6 @@ impl<FG: ForkGraph> TransactionBatchProcessor<FG> {
                     program_runtime_environment.clone(),
                     deployment_slot,
                     deployment_slot.saturating_add(DELAY_VISIBILITY_SLOT_OFFSET),
-                    None,
                     programdata,
                     account_size,
                     load_program_metrics,
@@ -786,7 +780,6 @@ impl<FG: ForkGraph> TransactionBatchProcessor<FG> {
                 program_runtime_environment.clone(),
                 deployment_slot,
                 deployment_slot.saturating_add(DELAY_VISIBILITY_SLOT_OFFSET),
-                None,
                 programdata,
                 account_size,
                 load_program_metrics,
@@ -848,5 +841,122 @@ impl<FG: ForkGraph> TransactionBatchProcessor<FG> {
             }
         }
         ProgramAccountLoadResult::InvalidAccountData(environments.program_runtime_v1.clone())
+    }
+
+    /// Extract the InnerInstructionsList from a TransactionContext
+    fn inner_instructions_list_from_instruction_trace(
+        transaction_context: &TransactionContext,
+    ) -> InnerInstructionsList {
+        debug_assert!(transaction_context
+            .get_instruction_context_at_index_in_trace(0)
+            .map(|instruction_context| instruction_context.get_stack_height()
+                == TRANSACTION_LEVEL_STACK_HEIGHT)
+            .unwrap_or(true));
+        let mut outer_instructions = Vec::new();
+        for index_in_trace in 0..transaction_context.get_instruction_trace_length() {
+            if let Ok(instruction_context) =
+                transaction_context.get_instruction_context_at_index_in_trace(index_in_trace)
+            {
+                let stack_height = instruction_context.get_stack_height();
+                if stack_height == TRANSACTION_LEVEL_STACK_HEIGHT {
+                    outer_instructions.push(Vec::new());
+                } else if let Some(inner_instructions) = outer_instructions.last_mut() {
+                    let stack_height = u8::try_from(stack_height).unwrap_or(u8::MAX);
+                    let instruction = CompiledInstruction::new_from_raw_parts(
+                        instruction_context
+                            .get_index_of_program_account_in_transaction(
+                                instruction_context
+                                    .get_number_of_program_accounts()
+                                    .saturating_sub(1),
+                            )
+                            .unwrap_or_default() as u8,
+                        instruction_context.get_instruction_data().to_vec(),
+                        (0..instruction_context.get_number_of_instruction_accounts())
+                            .map(|instruction_account_index| {
+                                instruction_context
+                                    .get_index_of_instruction_account_in_transaction(
+                                        instruction_account_index,
+                                    )
+                                    .unwrap_or_default() as u8
+                            })
+                            .collect(),
+                    );
+                    inner_instructions.push(InnerInstruction {
+                        instruction,
+                        stack_height,
+                    });
+                } else {
+                    debug_assert!(false);
+                }
+            } else {
+                debug_assert!(false);
+            }
+        }
+        outer_instructions
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use {
+        super::*,
+        solana_program_runtime::loaded_programs::BlockRelation,
+        solana_sdk::{sysvar::rent::Rent, transaction_context::TransactionContext},
+    };
+
+    struct TestForkGraph {}
+
+    impl ForkGraph for TestForkGraph {
+        fn relationship(&self, _a: Slot, _b: Slot) -> BlockRelation {
+            BlockRelation::Unknown
+        }
+    }
+
+    #[test]
+    fn test_inner_instructions_list_from_instruction_trace() {
+        let instruction_trace = [1, 2, 1, 1, 2, 3, 2];
+        let mut transaction_context =
+            TransactionContext::new(vec![], Rent::default(), 3, instruction_trace.len());
+        for (index_in_trace, stack_height) in instruction_trace.into_iter().enumerate() {
+            while stack_height <= transaction_context.get_instruction_context_stack_height() {
+                transaction_context.pop().unwrap();
+            }
+            if stack_height > transaction_context.get_instruction_context_stack_height() {
+                transaction_context
+                    .get_next_instruction_context()
+                    .unwrap()
+                    .configure(&[], &[], &[index_in_trace as u8]);
+                transaction_context.push().unwrap();
+            }
+        }
+        let inner_instructions =
+            TransactionBatchProcessor::<TestForkGraph>::inner_instructions_list_from_instruction_trace(
+                &transaction_context,
+            );
+
+        assert_eq!(
+            inner_instructions,
+            vec![
+                vec![InnerInstruction {
+                    instruction: CompiledInstruction::new_from_raw_parts(0, vec![1], vec![]),
+                    stack_height: 2,
+                }],
+                vec![],
+                vec![
+                    InnerInstruction {
+                        instruction: CompiledInstruction::new_from_raw_parts(0, vec![4], vec![]),
+                        stack_height: 2,
+                    },
+                    InnerInstruction {
+                        instruction: CompiledInstruction::new_from_raw_parts(0, vec![5], vec![]),
+                        stack_height: 3,
+                    },
+                    InnerInstruction {
+                        instruction: CompiledInstruction::new_from_raw_parts(0, vec![6], vec![]),
+                        stack_height: 2,
+                    },
+                ]
+            ]
+        );
     }
 }

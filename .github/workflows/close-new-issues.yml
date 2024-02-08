@@ -13,6 +13,6 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.number }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: >
-          gh issue close $ISSUE_NUMBER --comment "This repository 
+          gh issue close $ISSUE_NUMBER --comment \"This repository 
           is no longer in use. Please re-open this issue in the agave 
-          repo: https://github.com/anza-xyz/agave"
+          repo: https://github.com/anza-xyz/agave\"

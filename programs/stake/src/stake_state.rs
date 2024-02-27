@@ -1272,6 +1272,7 @@ fn validate_split_amount(
     additional_required_lamports: u64,
     source_is_active: bool,
 ) -> Result<ValidatedSplitInfo, InstructionError> {
+    ic_msg!(invoke_context, " whickey validate_split_amount");
     let source_account = instruction_context
         .try_borrow_instruction_account(transaction_context, source_account_index)?;
     let source_lamports = source_account.get_lamports();
@@ -1283,11 +1284,13 @@ fn validate_split_amount(
     drop(destination_account);
 
     // Split amount has to be something
+    ic_msg!(invoke_context, " whickey validate_split_amount source_lamports: {} lamports: {} ", source_lamports, lamports);
     if lamports == 0 {
         return Err(InstructionError::InsufficientFunds);
     }
 
     // Obviously cannot split more than what the source account has
+    
     if lamports > source_lamports {
         return Err(InstructionError::InsufficientFunds);
     }
@@ -1296,10 +1299,12 @@ fn validate_split_amount(
     // EITHER at least the minimum balance, OR zero (in this case the source
     // account is transferring all lamports to new destination account, and the source
     // account will be closed)
+    ic_msg!(invoke_context, " whickey validate_split_amount");
     let source_minimum_balance = source_meta
         .rent_exempt_reserve
         .saturating_add(additional_required_lamports);
     let source_remaining_balance = source_lamports.saturating_sub(lamports);
+    ic_msg!(invoke_context, " whickey validate_split_amount source_remaining_balance: {}, source_minimum_balance: {}", source_remaining_balance, source_minimum_balance);
     if source_remaining_balance == 0 {
         // full amount is a withdrawal
         // nothing to do here
@@ -1325,6 +1330,7 @@ fn validate_split_amount(
         && source_remaining_balance != 0
         && destination_lamports < destination_rent_exempt_reserve
     {
+        ic_msg!(invoke_context, " whickey require rent exempt split desintation failure");
         return Err(InstructionError::InsufficientFunds);
     }
 
@@ -1337,6 +1343,7 @@ fn validate_split_amount(
     let destination_balance_deficit =
         destination_minimum_balance.saturating_sub(destination_lamports);
     if lamports < destination_balance_deficit {
+        ic_msg!(invoke_context, " whickey validate_split_amount. lamports: {}, destination_balance_deficit: {}", lamports, destination_balance_deficit);
         return Err(InstructionError::InsufficientFunds);
     }
 

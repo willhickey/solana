@@ -224,6 +224,7 @@ pub fn parse_args<'a>(
             output_format,
             commitment,
             send_transaction_config: RpcSendTransactionConfig {
+                skip_preflight: true,
                 preflight_commitment: Some(commitment.commitment),
                 ..RpcSendTransactionConfig::default()
             },

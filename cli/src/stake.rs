@@ -2013,7 +2013,7 @@ pub fn process_split_stake(
             &tx.message,
             config.commitment,
         )?;
-        let result = rpc_client.send_and_confirm_transaction_with_spinner(&tx);
+        let result = rpc_client.send_and_confirm_transaction_with_spinner_and_config(&tx, config.commitment, config.send_transaction_config);
         log_instruction_custom_error::<StakeError>(result, config)
     }
 }

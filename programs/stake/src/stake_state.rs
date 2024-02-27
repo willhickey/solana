@@ -719,6 +719,7 @@ pub fn split(
     split_index: IndexOfAccount,
     signers: &HashSet<Pubkey>,
 ) -> Result<(), InstructionError> {
+    msg!("whickey entering split");
     let split =
         instruction_context.try_borrow_instruction_account(transaction_context, split_index)?;
     if *split.get_owner() != id() {
@@ -739,9 +740,10 @@ pub fn split(
     }
     let stake_state = stake_account.get_state()?;
     drop(stake_account);
-
+    msg!("whickey before match stake_state");
     match stake_state {
         StakeStateV2::Stake(meta, mut stake, stake_flags) => {
+            msg!("whickey StakeStateV2::Stake(meta, mut stake, stake_flags) => {");
             meta.authorized.check(signers, StakeAuthorize::Staker)?;
             let minimum_delegation = crate::get_minimum_delegation(&invoke_context.feature_set);
             let is_active = if invoke_context
@@ -828,6 +830,7 @@ pub fn split(
             split.set_state(&StakeStateV2::Stake(split_meta, split_stake, stake_flags))?;
         }
         StakeStateV2::Initialized(meta) => {
+            msg!("whickey StakeStateV2::Initialized(meta) => {");
             meta.authorized.check(signers, StakeAuthorize::Staker)?;
             let validated_split_info = validate_split_amount(
                 invoke_context,
@@ -847,6 +850,7 @@ pub fn split(
             split.set_state(&StakeStateV2::Initialized(split_meta))?;
         }
         StakeStateV2::Uninitialized => {
+            msg!("whickey StakeStateV2::Uninitialized => {");
             let stake_pubkey = transaction_context.get_key_of_account_at_index(
                 instruction_context
                     .get_index_of_instruction_account_in_transaction(stake_account_index)?,
@@ -857,6 +861,8 @@ pub fn split(
         }
         _ => return Err(InstructionError::InvalidAccountData),
     }
+    msg!("whickey after match stake_state");
+    msg!("whickey lamports: {}", lamports);
 
     // Deinitialize state upon zero balance
     let mut stake_account = instruction_context

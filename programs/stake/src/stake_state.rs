@@ -719,7 +719,7 @@ pub fn split(
     split_index: IndexOfAccount,
     signers: &HashSet<Pubkey>,
 ) -> Result<(), InstructionError> {
-    msg!("whickey entering split");
+    ic_msg!(invoke_context, "whickey entering split");
     let split =
         instruction_context.try_borrow_instruction_account(transaction_context, split_index)?;
     if *split.get_owner() != id() {
@@ -740,10 +740,10 @@ pub fn split(
     }
     let stake_state = stake_account.get_state()?;
     drop(stake_account);
-    msg!("whickey before match stake_state");
+    ic_msg!(invoke_context, "whickey before match stake_state");
     match stake_state {
         StakeStateV2::Stake(meta, mut stake, stake_flags) => {
-            msg!("whickey StakeStateV2::Stake(meta, mut stake, stake_flags) => {");
+            ic_msg!(invoke_context, "whickey StakeStateV2::Stake(meta, mut stake, stake_flags) => {");
             meta.authorized.check(signers, StakeAuthorize::Staker)?;
             let minimum_delegation = crate::get_minimum_delegation(&invoke_context.feature_set);
             let is_active = if invoke_context
@@ -767,7 +767,7 @@ pub fn split(
                 minimum_delegation,
                 is_active,
             )?;
-            msg!("whickey: validated_split_info: {:?}", validated_split_info);
+            ic_msg!(invoke_context, "whickey: validated_split_info: {:?}", validated_split_info);
             // split the stake, subtract rent_exempt_balance unless
             // the destination account already has those lamports
             // in place.
@@ -790,13 +790,13 @@ pub fn split(
                 } else {
                     // Otherwise, the new split stake should reflect the entire split
                     // requested, less any lamports needed to cover the split_rent_exempt_reserve.
-                    msg!("whickey: stake.delegation.stake: {}, lamports: {}, minimum_delegation: {}", stake.delegation.stake, lamports, minimum_delegation);
+                    ic_msg!(invoke_context, "whickey: stake.delegation.stake: {}, lamports: {}, minimum_delegation: {}", stake.delegation.stake, lamports, minimum_delegation);
                     if stake.delegation.stake.saturating_sub(lamports) < minimum_delegation {
-                        msg!("whickey: returning InsufficientDelegation #1");
+                        ic_msg!(invoke_context, "whickey: returning InsufficientDelegation #1");
                         return Err(StakeError::InsufficientDelegation.into());
                     }
 
-                    msg!("whickey: lamports: {}, second part of tuple: {}", lamports, lamports.saturating_sub(
+                    ic_msg!(invoke_context, "whickey: lamports: {}, second part of tuple: {}", lamports, lamports.saturating_sub(
                         validated_split_info
                             .destination_rent_exempt_reserve
                             .saturating_sub(split_lamport_balance),
@@ -811,9 +811,9 @@ pub fn split(
                         ),
                     )
                 };
-                msg!("remaining_stake_delta: {}, split_stake_amount {}", remaining_stake_delta, split_stake_amount);
+                ic_msg!(invoke_context, "remaining_stake_delta: {}, split_stake_amount {}", remaining_stake_delta, split_stake_amount);
             if split_stake_amount < minimum_delegation {
-                msg!("whickey: returning InsufficientDelegation #2");
+                ic_msg!(invoke_context, "whickey: returning InsufficientDelegation #2");
                 return Err(StakeError::InsufficientDelegation.into());
             }
 
@@ -830,7 +830,7 @@ pub fn split(
             split.set_state(&StakeStateV2::Stake(split_meta, split_stake, stake_flags))?;
         }
         StakeStateV2::Initialized(meta) => {
-            msg!("whickey StakeStateV2::Initialized(meta) => {");
+            ic_msg!(invoke_context, "whickey StakeStateV2::Initialized(meta) => {");
             meta.authorized.check(signers, StakeAuthorize::Staker)?;
             let validated_split_info = validate_split_amount(
                 invoke_context,
@@ -850,7 +850,7 @@ pub fn split(
             split.set_state(&StakeStateV2::Initialized(split_meta))?;
         }
         StakeStateV2::Uninitialized => {
-            msg!("whickey StakeStateV2::Uninitialized => {");
+            ic_msg!(invoke_context, "whickey StakeStateV2::Uninitialized => {");
             let stake_pubkey = transaction_context.get_key_of_account_at_index(
                 instruction_context
                     .get_index_of_instruction_account_in_transaction(stake_account_index)?,
@@ -861,8 +861,8 @@ pub fn split(
         }
         _ => return Err(InstructionError::InvalidAccountData),
     }
-    msg!("whickey after match stake_state");
-    msg!("whickey lamports: {}", lamports);
+    ic_msg!(invoke_context, "whickey after match stake_state");
+    ic_msg!(invoke_context, "whickey lamports: {}", lamports);
 
     // Deinitialize state upon zero balance
     let mut stake_account = instruction_context

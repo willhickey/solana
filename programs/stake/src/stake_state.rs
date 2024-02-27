@@ -9,7 +9,7 @@
 )]
 pub use solana_sdk::stake::state::*;
 use {
-    log::info,
+    
     solana_program_runtime::{ic_msg, invoke_context::InvokeContext},
     solana_sdk::{
         account::{AccountSharedData, ReadableAccount, WritableAccount},
@@ -17,6 +17,7 @@ use {
         clock::{Clock, Epoch},
         feature_set::{self, stake_merge_with_unmatched_credits_observed, FeatureSet},
         instruction::{checked_add, InstructionError},
+        msg,
         pubkey::Pubkey,
         rent::Rent,
         stake::{
@@ -764,7 +765,7 @@ pub fn split(
                 minimum_delegation,
                 is_active,
             )?;
-            info!("whickey: validated_split_info: {:?}", validated_split_info);
+            msg!("whickey: validated_split_info: {:?}", validated_split_info);
             // split the stake, subtract rent_exempt_balance unless
             // the destination account already has those lamports
             // in place.
@@ -787,13 +788,13 @@ pub fn split(
                 } else {
                     // Otherwise, the new split stake should reflect the entire split
                     // requested, less any lamports needed to cover the split_rent_exempt_reserve.
-                    info!("whickey: stake.delegation.stake: {}, lamports: {}, minimum_delegation: {}", stake.delegation.stake, lamports, minimum_delegation);
+                    msg!("whickey: stake.delegation.stake: {}, lamports: {}, minimum_delegation: {}", stake.delegation.stake, lamports, minimum_delegation);
                     if stake.delegation.stake.saturating_sub(lamports) < minimum_delegation {
-                        info!("whickey: returning InsufficientDelegation #1");
+                        msg!("whickey: returning InsufficientDelegation #1");
                         return Err(StakeError::InsufficientDelegation.into());
                     }
 
-                    info!("whickey: lamports: {}, second part of tuple: {}", lamports, lamports.saturating_sub(
+                    msg!("whickey: lamports: {}, second part of tuple: {}", lamports, lamports.saturating_sub(
                         validated_split_info
                             .destination_rent_exempt_reserve
                             .saturating_sub(split_lamport_balance),
@@ -808,9 +809,9 @@ pub fn split(
                         ),
                     )
                 };
-                info!("remaining_stake_delta: {}, split_stake_amount {}", remaining_stake_delta, split_stake_amount);
+                msg!("remaining_stake_delta: {}, split_stake_amount {}", remaining_stake_delta, split_stake_amount);
             if split_stake_amount < minimum_delegation {
-                info!("whickey: returning InsufficientDelegation #2");
+                msg!("whickey: returning InsufficientDelegation #2");
                 return Err(StakeError::InsufficientDelegation.into());
             }
 

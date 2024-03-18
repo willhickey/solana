@@ -1,0 +1,60 @@
+# TODO Minimize the PAT permissions. Leave a comment about which are required.
+
+name: Update Upstream From Fork
+
+on:
+  push:
+    branches:
+      - master
+      - v1.18
+      - v1.17
+
+env:
+  GH_TOKEN: ${{ secrets.SYNC_TEST_ADMIN2 }}
+  GH_REPO: ${{ github.repository }}
+  BRANCH_REF: ${{ github.ref_name }}
+  REF: ${{ github.event.REF}}
+  BEFORE_SHA: ${{ github.event.before }}
+  LAST_SHA: ${{ github.event.after}}
+  UPSTREAM: https://github.com/solana-labs/sync_test.git
+  GITHUB_OBJ: ${{ toJSON(github) }}
+
+jobs:
+  update-upstream-from-fork:
+    # TODO need to update this repo name to anza-xyz/agave
+    if: github.repository == 'willhickey/sync_test'
+    name: "Update Upstream From Fork"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo git status
+        run: |
+          echo "---------------"
+          echo "gh auth status"
+          gh auth status
+          echo "---------------"
+          echo "git config -l: "
+          git config -l
+          echo "---------------"
+        shell: bash
+      - uses: actions/checkout@v4
+        with:
+          # By default checkout only gets 1 commit. We want to cherry-pick
+          # all the commits from the push, so fetch the entire history
+          fetch-depth: 0
+          # By default checkout uses secrets.GITHUB_TOKEN. That token won't
+          # have any permissions in the upstream repo, so we need to override it
+          # with a Personal Access Token that can access both repos
+          token: ${{ env.GH_TOKEN }}
+      - name: Add remote for upstream
+        run: git remote add upstream $UPSTREAM
+        shell: bash
+      - name: show remotes and branches
+        run: |
+          git fetch --all
+          git remote --verbose
+          git branch --all
+        shell: bash
+      - name: Cherry pick from origin to upstream
+        run: |
+          .github/scripts/cherry-pick-from-branch.sh upstream "$BRANCH_REF" "$BEFORE_SHA" "$LAST_SHA"
+        shell: bash

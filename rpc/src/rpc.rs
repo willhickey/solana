@@ -4849,7 +4849,7 @@ pub mod tests {
             "pubsub": format!("127.0.0.1:{}", rpc_port::DEFAULT_RPC_PUBSUB_PORT),
             "version": format!("{version}"),
             "featureSet": version.feature_set,
-            "commit": 00000000,
+            "commit": "00000000",
             "clientId": "Agave",
         }, {
             "pubkey": rpc.leader_pubkey().to_string(),
@@ -4866,7 +4866,7 @@ pub mod tests {
             "pubsub": format!("127.0.0.1:{}", rpc_port::DEFAULT_RPC_PUBSUB_PORT),
             "version": format!("{version}"),
             "featureSet": version.feature_set,
-            "commit": 0,
+            "commit": "00000000",
             "clientId": "Agave",
         }]);
         assert_eq!(result, expected);

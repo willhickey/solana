@@ -294,9 +294,20 @@ pub struct RpcContactInfo {
     /// Shred version
     pub shred_version: Option<u16>,
     /// First 4 bytes of the sha1 commit hash
+    #[serde(serialize_with = "int_as_hex")]
     pub commit: Option<u32>,
     /// Client id
     pub client_id: Option<ClientId>,
+}
+
+pub fn int_as_hex<S>(input: &Option<u32>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    match input {
+        Some(sha1) => serializer.serialize_str(format!("{:08x}", sha1).as_str()),
+        None => serializer.serialize_str(format!("{:08x}", 0).as_str())
+    }
 }
 
 /// Map of leader base58 identity pubkeys to the slot indices relative to the first epoch slot

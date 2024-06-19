@@ -12,6 +12,7 @@ use {
         ConfirmedTransactionStatusWithSignature, TransactionConfirmationStatus, UiConfirmedBlock,
         UiInnerInstructions, UiTransactionReturnData,
     },
+    solana_version::ClientId,
     std::{collections::HashMap, fmt, net::SocketAddr, str::FromStr},
     thiserror::Error,
 };
@@ -292,6 +293,10 @@ pub struct RpcContactInfo {
     pub feature_set: Option<u32>,
     /// Shred version
     pub shred_version: Option<u16>,
+    /// First 4 bytes of the sha1 commit hash
+    pub commit: Option<u32>,
+    /// Client id
+    pub client_id: Option<ClientId>,
 }
 
 /// Map of leader base58 identity pubkeys to the slot indices relative to the first epoch slot

@@ -14,8 +14,8 @@ extern crate solana_frozen_abi_macro;
 
 mod legacy;
 
-#[derive(Debug, Eq, PartialEq)]
-enum ClientId {
+#[derive(Debug, Eq, PartialEq, Clone, Serialize, Deserialize)]
+pub enum ClientId {
     SolanaLabs,
     JitoLabs,
     Firedancer,
@@ -33,6 +33,8 @@ pub struct Version {
     pub minor: u16,
     #[serde(with = "serde_varint")]
     pub patch: u16,
+    // TODO hex serde
+    #[serde(serialize_with = "int_as_hex")]
     pub commit: u32,      // first 4 bytes of the sha1 commit hash
     pub feature_set: u32, // first 4 bytes of the FeatureSet identifier
     #[serde(with = "serde_varint")]
@@ -44,9 +46,16 @@ impl Version {
         semver::Version::new(self.major as u64, self.minor as u64, self.patch as u64)
     }
 
-    fn client(&self) -> ClientId {
+    pub fn client(&self) -> ClientId {
         ClientId::from(self.client)
     }
+}
+
+pub fn int_as_hex<S>(input: &u32, serializer: S) -> std::result::Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    serializer.serialize_str(format!("{:08x}", input).as_str())
 }
 
 fn compute_commit(sha1: Option<&'static str>) -> Option<u32> {

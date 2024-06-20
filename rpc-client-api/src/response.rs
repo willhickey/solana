@@ -299,7 +299,7 @@ pub struct RpcContactInfo {
     /// Client id
     pub client_id: Option<ClientId>,
 }
-
+// TODO relocate this?
 pub fn int_as_hex<S>(input: &Option<u32>, serializer: S) -> std::result::Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
@@ -336,6 +336,7 @@ pub struct RpcVersionInfo {
     /// first 4 bytes of the FeatureSet identifier
     pub feature_set: Option<u32>,
     // first 4 bytes of the sha1 commit hash
+    #[serde(serialize_with = "int_as_hex")]
     pub commit: Option<u32>,
     /// Client id
     pub client_id: Option<ClientId>, // TODO maybe rename to client?

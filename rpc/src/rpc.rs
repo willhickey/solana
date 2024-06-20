@@ -2717,6 +2717,9 @@ pub mod rpc_minimal {
             Ok(RpcVersionInfo {
                 solana_core: version.to_string(),
                 feature_set: Some(version.feature_set),
+                commit: Some(version.commit),
+                client_id: Some(version.client()),
+
             })
         }
 
@@ -6695,6 +6698,8 @@ pub mod tests {
             json!({
                 "solana-core": version.to_string(),
                 "feature-set": version.feature_set,
+                "commit": version.commit,
+                "client_id": version.client(),
             })
         };
         assert_eq!(result, expected);

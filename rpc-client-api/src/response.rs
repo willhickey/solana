@@ -335,6 +335,10 @@ pub struct RpcVersionInfo {
     pub solana_core: String,
     /// first 4 bytes of the FeatureSet identifier
     pub feature_set: Option<u32>,
+    // first 4 bytes of the sha1 commit hash
+    pub commit: Option<u32>,
+    /// Client id
+    pub client_id: Option<ClientId>, // TODO maybe rename to client?
 }
 
 impl fmt::Debug for RpcVersionInfo {

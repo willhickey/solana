@@ -33,8 +33,6 @@ pub struct Version {
     pub minor: u16,
     #[serde(with = "serde_varint")]
     pub patch: u16,
-    // TODO hex serde
-    #[serde(serialize_with = "int_as_hex")]
     pub commit: u32,      // first 4 bytes of the sha1 commit hash
     pub feature_set: u32, // first 4 bytes of the FeatureSet identifier
     #[serde(with = "serde_varint")]
@@ -49,13 +47,6 @@ impl Version {
     pub fn client(&self) -> ClientId {
         ClientId::from(self.client)
     }
-}
-
-pub fn int_as_hex<S>(input: &u32, serializer: S) -> std::result::Result<S::Ok, S::Error>
-where
-    S: serde::Serializer,
-{
-    serializer.serialize_str(format!("{:08x}", input).as_str())
 }
 
 fn compute_commit(sha1: Option<&'static str>) -> Option<u32> {

@@ -18,6 +18,7 @@ echo "build.sh starting npm run build"
 npm run build
 echo $?
 echo "build.sh checking if publish"
+CI="TODO remove"
 # Publish only from merge commits and beta release tags
 if [[ -n $CI ]]; then
   if [[ -z $CI_PULL_REQUEST ]]; then

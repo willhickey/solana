@@ -1,4 +1,4 @@
-# The SVM team is in the process of migrating these subdirectories to a new 
+# The SVM team is in the process of migrating these subdirectories to a new
 # repo and would like to avoid introducing dependencies in the meantime.
 /transaction-view/ @anza-xyz/svm
 /programs/bpf_loader/ @anza-xyz/svm

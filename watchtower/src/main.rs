@@ -16,7 +16,7 @@ use {
     solana_notifier::{NotificationType, Notifier},
     solana_pubkey::Pubkey,
     solana_rpc_client::rpc_client::RpcClient,
-    solana_rpc_client_api::{client_error, response::RpcVoteAccountStatus},
+    solana_rpc_client_api::{client_error, response::{RpcVoteAccountInfo, RpcVoteAccountStatus}},
     std::{
         collections::HashMap,
         error,
@@ -243,6 +243,18 @@ fn get_cluster_info(
     ))
 }
 
+fn get_mode_vote(current: &[RpcVoteAccountInfo]) -> Option<u64> {
+    let mut highest_vote_counts = HashMap::new();
+    // let max_count = 0;
+    // let max_count_slot: Option<u64> = None;
+
+    for vai in current {
+        let entry = highest_vote_counts.entry(vai.last_vote).or_insert(0);
+        *entry += 1;
+    }
+    highest_vote_counts.iter().max_by(|a, b| a.1.cmp(b.1)).map(|(k, _v)| k).copied()
+}
+
 fn main() -> Result<(), Box<dyn error::Error>> {
     solana_logger::setup_with_default_filter();
     solana_metrics::set_panic_hook("watchtower", /*version:*/ None);
@@ -332,7 +344,11 @@ fn main() -> Result<(), Box<dyn error::Error>> {
                         .iter()
                         .any(|vai| vai.node_pubkey == *validator_identity.to_string())
                     {
-                        validator_errors.push(format!("{formatted_validator_identity} delinquent"));
+                        // get last_vote for this one, and the mode from vote_accounts.current 
+                        let this_last_vote = vote_accounts.delinquent.iter().find(|vai| vai.node_pubkey == *validator_identity.to_string()).unwrap().last_vote;
+                        let slice: &[RpcVoteAccountInfo] = &vote_accounts.current;
+                        let cluster_tip_vote = get_mode_vote(slice).unwrap();
+                        validator_errors.push(format!("{} delinquent. {} slot(s) behind (us:{} them:{})", formatted_validator_identity, cluster_tip_vote-this_last_vote, this_last_vote, cluster_tip_vote ));
                     } else if !vote_accounts
                         .current
                         .iter()

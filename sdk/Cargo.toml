@@ -329,6 +329,7 @@ wasm-bindgen = "0.2"
 # in your Cargo.toml. If you still hit duplicate-type errors with the patch
 # statements in place, run `cargo update -p solana-program` to remove extraneous
 # versions from your Cargo.lock file.
+solana-clock = { path = "clock" }
 solana-cpi = { path = "cpi" }
 solana-decode-error = { path = "decode-error" }
 solana-instruction = { path = "instruction" }

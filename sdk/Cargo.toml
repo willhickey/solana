@@ -333,6 +333,7 @@ solana-clock = { path = "clock" }
 solana-cpi = { path = "cpi" }
 solana-decode-error = { path = "decode-error" }
 solana-frozen-abi = { path = "frozen-abi" }
+solana-frozen-abi-macro = { path = "frozen-abi/macro" }
 solana-instruction = { path = "instruction" }
 solana-program-error = { path = "program-error" }
 solana-pubkey = { path = "pubkey" }

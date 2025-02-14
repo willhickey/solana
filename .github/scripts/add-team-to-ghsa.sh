@@ -13,8 +13,15 @@ ghsa_json=$(gh api \
     -H "X-GitHub-Api-Version: 2022-11-28"   \
     /repos/$github_org/$github_repo/security-advisories?per_page=100 --paginate )
 
-# Get a list of GHSAs that don't have the $team_to_add_slug in collaborating_teams
-ghsa_without_team=$( jq -r '[ .[] | select(all(.collaborating_teams.[]; .slug != "'"$team_to_add_slug"'")) | .ghsa_id ] | sort | .[] ' <<< "$ghsa_json" )
+# Get a list of GHSAs that:
+# 1) don't have the $team_to_add_slug in collaborating_teams; and
+# 2) do not have "state": "closed"
+# The filter will still select GHSAs that have:
+#   - "state" values other than "closed"; or
+#   - "state": null; or
+#   - no "state" property
+# This is intentionally permissive. If the schema changes the this script will err on the side of adding the team to GHSAs.
+ghsa_without_team=$( jq -r '[ .[] | select(all(.collaborating_teams.[]; .slug != "'"$team_to_add_slug"'")) | select(.state != "closed") | .ghsa_id ] | sort | .[] ' <<< "$ghsa_json" )
 if [[ -z $ghsa_without_team ]]; then
     echo "All GHSAs already have $team_to_add_slug. Exiting..."
     exit 0

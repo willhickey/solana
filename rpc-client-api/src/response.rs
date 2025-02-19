@@ -1,6 +1,6 @@
 use {
     crate::client_error,
-    serde::{Deserialize, Deserializer, Serialize, Serializer},
+    serde::{de, Deserialize, Deserializer, Serialize, Serializer},
     solana_account_decoder_client_types::{token::UiTokenAmount, UiAccount},
     solana_clock::{Epoch, Slot, UnixTimestamp},
     solana_fee_calculator::{FeeCalculator, FeeRateGovernor},
@@ -11,7 +11,7 @@ use {
         UiInnerInstructions, UiTransactionReturnData,
     },
     solana_version::ClientId,
-    std::{collections::HashMap, fmt, net::SocketAddr, str::FromStr},
+    std::{borrow::Cow, collections::HashMap, fmt, net::SocketAddr, num::{IntErrorKind, ParseIntError}, str::FromStr},
     thiserror::Error,
 };
 
@@ -292,20 +292,35 @@ pub struct RpcContactInfo {
     /// Shred version
     pub shred_version: Option<u16>,
     /// First 4 bytes of the sha1 commit hash
-    #[serde(serialize_with = "int_as_hex")]
+    #[serde(serialize_with = "to_hex", deserialize_with = "from_hex")]
     pub commit: Option<u32>,
     /// Client id
     pub client_id: Option<ClientId>,
 }
 // TODO relocate this?
-pub fn int_as_hex<S>(input: &Option<u32>, serializer: S) -> std::result::Result<S::Ok, S::Error>
+pub fn to_hex<S>(input: &Option<u32>, serializer: S) -> std::result::Result<S::Ok, S::Error>
 where
     S: serde::Serializer,
 {
-    match input {
-        Some(sha1) => serializer.serialize_str(format!("{:08x}", sha1).as_str()),
-        None => serializer.serialize_str(format!("{:08x}", 0).as_str())
-    }
+    let sha1_or_0 = input.unwrap_or(0);
+    serializer.serialize_str(format!("{:08x}", sha1_or_0).as_str())
+}
+// https://play.rust-lang.org/?version=stable&mode=debug&edition=2018&gist=ee7f582b5873013723596790a7993925
+// https://stackoverflow.com/questions/46753955/how-to-transform-fields-during-deserialization-using-serde
+
+
+fn from_hex<'de, D>(deserializer: D) -> std::result::Result<Option<u32>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    println!("Running from_hex");
+    let input: Cow<'de, str> = serde::Deserialize::deserialize(deserializer)?;
+    println!("from_hex input: ->{:?}<-", input);
+    let Some(first_8) = &input.get(..8) else {panic!("need a better error here") };
+    print!("from_hex first_8: ->{}<-", first_8);
+    let foo = u32::from_str_radix(&first_8, /*radix:*/ 16)
+        .map_err(|_| serde::de::Error::invalid_type(serde::de::Unexpected::Str(first_8), &"hex u32"))?;
+    Ok(Some(foo))
 }
 
 /// Map of leader base58 identity pubkeys to the slot indices relative to the first epoch slot
@@ -334,7 +349,7 @@ pub struct RpcVersionInfo {
     /// first 4 bytes of the FeatureSet identifier
     pub feature_set: Option<u32>,
     // first 4 bytes of the sha1 commit hash
-    #[serde(serialize_with = "int_as_hex")]
+    #[serde(serialize_with = "to_hex", deserialize_with = "from_hex")] // TODO should I do this?
     pub commit: Option<u32>,
     /// Client id
     pub client_id: Option<ClientId>, // TODO maybe rename to client?
@@ -555,6 +570,77 @@ pub struct RpcPrioritizationFee {
 pub mod tests {
 
     use {super::*, serde_json::json};
+
+
+    #[test]
+    fn test_rpc_contact_info_serialization() {
+        pub const PUBKEY: &str = "7RoSF9fUmdphVCpabEoefH81WwrW7orsWonXWqTXkKV8";
+        let foo = serde_json::to_value(vec![RpcContactInfo {
+            pubkey: PUBKEY.to_string(),
+            gossip: Some(SocketAddr::from(([10, 239, 6, 48], 8899))),
+            tvu: Some(SocketAddr::from(([10, 239, 6, 48], 8865))),
+            tpu: Some(SocketAddr::from(([10, 239, 6, 48], 8856))),
+            tpu_quic: Some(SocketAddr::from(([10, 239, 6, 48], 8862))),
+            tpu_forwards: Some(SocketAddr::from(([10, 239, 6, 48], 8857))),
+            tpu_forwards_quic: Some(SocketAddr::from(([10, 239, 6, 48], 8863))),
+            tpu_vote: Some(SocketAddr::from(([10, 239, 6, 48], 8870))),
+            serve_repair: Some(SocketAddr::from(([10, 239, 6, 48], 8880))),
+            rpc: Some(SocketAddr::from(([10, 239, 6, 48], 8899))),
+            pubsub: Some(SocketAddr::from(([10, 239, 6, 48], 8900))),
+            version: Some("1.0.0 c375ce1f".to_string()),
+            feature_set: None,
+            shred_version: None,
+            commit: Some(123456),
+            client_id: Some(ClientId::Agave),
+        }]).unwrap();
+        println!("foo: {:?}", foo);
+    }
+    #[test]
+    fn test_rpc_contact_info_deserialization() {
+        pub const PUBKEY: &str = "7RoSF9fUmdphVCpabEoefH81WwrW7orsWonXWqTXkKV8";
+        // let version = solana_version::Version::default();
+        // let json = json!({
+        //     "pubkey": PUBKEY.to_string(),
+        //     "gossip": "127.0.0.1:8000",
+        //     "shredVersion": 0u16,
+        //     "tvu": "127.0.0.1:8001",
+        //     "tpu": "127.0.0.1:8003",
+        //     "tpuQuic": "127.0.0.1:8009",
+        //     "tpuForwards": "127.0.0.1:8004",
+        //     "tpuForwardsQuic": "127.0.0.1:8010",
+        //     "tpuVote": "127.0.0.1:8005",
+        //     "serveRepair": "127.0.0.1:8008",
+        //     "rpc": "127.0.0.1:8123",
+        //     "pubsub": "127.0.0.1:8124",
+        //     "version": format!("{version}"),
+        //     "featureSet": version.feature_set,
+        //     "commit": "b2691dc3",
+        //     "clientId": "Agave",
+        // });
+        // println!("json: {:?}", json);
+        let value = serde_json::to_value(RpcContactInfo {
+            pubkey: PUBKEY.to_string(),
+            gossip: Some(SocketAddr::from(([10, 239, 6, 48], 8899))),
+            tvu: Some(SocketAddr::from(([10, 239, 6, 48], 8865))),
+            tpu: Some(SocketAddr::from(([10, 239, 6, 48], 8856))),
+            tpu_quic: Some(SocketAddr::from(([10, 239, 6, 48], 8862))),
+            tpu_forwards: Some(SocketAddr::from(([10, 239, 6, 48], 8857))),
+            tpu_forwards_quic: Some(SocketAddr::from(([10, 239, 6, 48], 8863))),
+            tpu_vote: Some(SocketAddr::from(([10, 239, 6, 48], 8870))),
+            serve_repair: Some(SocketAddr::from(([10, 239, 6, 48], 8880))),
+            rpc: Some(SocketAddr::from(([10, 239, 6, 48], 8899))),
+            pubsub: Some(SocketAddr::from(([10, 239, 6, 48], 8900))),
+            version: Some("1.0.0 c375ce1f".to_string()),
+            feature_set: None,
+            shred_version: None,
+            commit: Some(123456),
+            client_id: Some(ClientId::Agave),
+        }).unwrap();
+        println!("value: {:?}", value);
+        let info: RpcContactInfo = serde_json::from_value(value).unwrap();
+        println!("info: {:?}", info);
+
+    }
 
     // Make sure that `RpcPerfSample` can read previous version JSON, one without the
     // `num_non_vote_transactions` field.

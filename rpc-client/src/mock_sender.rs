@@ -345,7 +345,7 @@ impl RpcSender for MockSender {
                 version: Some("1.0.0 c375ce1f".to_string()),
                 feature_set: None,
                 shred_version: None,
-                commit: None,
+                commit: Some(123456),
                 client_id: Some(ClientId::Agave),
             }])?,
             "getBlock" => serde_json::to_value(EncodedConfirmedBlock {

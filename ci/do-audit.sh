@@ -80,7 +80,7 @@ cargo_audit_ignores=(
   # Dependency tree:
   # ring 0.17.3
   --ignore RUSTSEC-2025-0009
-  
+
   # Crate:     openssl
   # Version:   0.10.70
   # Title:     Use-After-Free in `Md::fetch` and `Cipher::fetch`

@@ -41,10 +41,7 @@ find yourself in need of support.
 Running an Agave validator for live clusters (including mainnet-beta) inside Docker is
 not recommended and generally not supported. This is due to concerns of general
 Docker's containerization overhead and resultant performance degradation unless
-specially configured.
-
-We use Docker only for development purposes. Docker Hub contains images for all
-releases at [anzaxyz/agave](https://hub.docker.com/r/anzaxyz/agave).
+specially configured. We use Docker only for development purposes.
 
 ## Software
 

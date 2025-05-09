@@ -39,7 +39,7 @@ find yourself in need of support.
 ## Docker
 
 Running an Agave validator for live clusters (including mainnet-beta) inside Docker is
-not recommended and generally not supported. This is due to concerns of general
+not recommended and generally not supported. This is due to general concerns of
 Docker's containerization overhead and resultant performance degradation unless
 specially configured. We use Docker only for development purposes.
 

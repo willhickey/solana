@@ -1,3 +1,5 @@
+#[cfg(not(target_os = "windows"))]
+use signal_hook::{consts::SIGTERM, iterator::Signals};
 use {
     crate::{
         admin_rpc_service::{self, load_staked_nodes_overrides, StakedNodesOverrides},
@@ -1365,6 +1367,21 @@ pub fn execute(
     if let Some(filename) = init_complete_file {
         File::create(filename).map_err(|err| format!("unable to create {filename}: {err}"))?;
     }
+
+    #[cfg(not(windows))]
+    {
+        let mut signals = Signals::new([SIGTERM])?;
+
+        std::thread::spawn(move || {
+            for signal in signals.forever() {
+                if signal == SIGTERM {
+                    warn!("Validator received SIGTERM. Initiating graceful exit.");
+                    validator_config.validator_exit.write().unwrap().exit();
+                }
+            }
+        });
+    }
+
     info!("Validator initialized");
     validator.join();
     info!("Validator exiting..");

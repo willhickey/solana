@@ -101,6 +101,7 @@ fn create_signal_handler_thread(
                 // None
             }
             Some(ref logfile) => {
+                solana_logger::setup_with_default_filter();
                 redirect_stderr(&logfile);
             }
         }

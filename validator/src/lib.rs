@@ -95,7 +95,16 @@ fn create_signal_handler_thread(
 ) -> Option<JoinHandle<()>> {
     #[cfg(not(windows))]
     {
-        redirect_stderr(&logfile);
+        match logfile {
+            None => {
+                solana_logger::setup_with_default_filter();
+                // None
+            }
+            Some(ref logfile) => {
+                redirect_stderr(&logfile);
+            }
+        }
+
         use log::info;
         let mut signals =
             Signals::new([SIGTERM, SIGUSR1]).expect("Unexpeted error creating signal handler"); // TODO error handling

@@ -1126,14 +1126,17 @@ pub fn execute(
     {
         let mut signals = Signals::new([SIGTERM])?;
 
-        std::thread::spawn(move || {
+        std::thread::Builder::new()
+            .name("solSigTerm".into())
+            .spawn(move || {
             for signal in signals.forever() {
                 if signal == SIGTERM {
-                    warn!("Validator received SIGTERM. Initiating graceful exit.");
+                    info!("Validator received SIGTERM. Initiating graceful exit.");
                     validator_config.validator_exit.write().unwrap().exit();
                 }
             }
-        });
+        })
+        .unwrap();
     }
 
     info!("Validator initialized");

@@ -95,12 +95,13 @@ fn create_signal_handler_thread(
 ) -> Option<JoinHandle<()>> {
     #[cfg(not(windows))]
     {
+        redirect_stderr(&logfile);
         use log::info;
         let mut signals =
             Signals::new([SIGTERM, SIGUSR1]).expect("Unexpeted error creating signal handler"); // TODO error handling
         Some(
             std::thread::Builder::new()
-                .name("solSignalHandler".into())
+                .name("solSigHandler".into())
                 .spawn(move || {
                     for signal in signals.forever() {
                         match signal {

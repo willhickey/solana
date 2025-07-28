@@ -127,6 +127,9 @@ pub fn execute(
     };
     let use_progress_bar = logfile.is_none();
 
+    let validator_exit = Arc::new(RwLock::new(Exit::default()));
+    create_signal_handler_thread(logfile, Arc::clone(&validator_exit));
+
     info!("{} {}", crate_name!(), solana_version);
     info!("Starting validator with: {:#?}", std::env::args_os());
 
@@ -728,15 +731,13 @@ pub fn execute(
         transaction_struct: value_t_or_exit!(matches, "transaction_struct", TransactionStructure),
         enable_block_production_forwarding: staked_nodes_overrides_path.is_some(),
         banking_trace_dir_byte_limit: parse_banking_trace_dir_byte_limit(matches),
-        validator_exit: Arc::new(RwLock::new(Exit::default())),
+        validator_exit: validator_exit,
         validator_exit_backpressure: [(
             SnapshotPackagerService::NAME.to_string(),
             Arc::new(AtomicBool::new(false)),
         )]
         .into(),
     };
-
-    create_signal_handler_thread(logfile, Arc::clone(&validator_config.validator_exit));
 
     let reserved = validator_config
         .retransmit_xdp

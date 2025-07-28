@@ -1,9 +1,12 @@
 #![allow(clippy::arithmetic_side_effects)]
+#[cfg(not(target_os = "windows"))]
+use signal_hook::{consts::SIGTERM, consts::SIGUSR1, iterator::Signals};
 pub use solana_test_validator as test_validator;
 use {
     console::style,
     fd_lock::{RwLock, RwLockWriteGuard},
     indicatif::{ProgressDrawTarget, ProgressStyle},
+    solana_validator_exit::Exit,
     std::{
         borrow::Cow,
         env,
@@ -11,6 +14,7 @@ use {
         fs::{File, OpenOptions},
         path::Path,
         process::exit,
+        sync::Arc,
         thread::JoinHandle,
         time::Duration,
     },
@@ -82,6 +86,56 @@ pub fn redirect_stderr_to_file(logfile: Option<String>) -> Option<JoinHandle<()>
                 None
             }
         }
+    }
+}
+
+fn create_signal_handler_thread(
+    logfile: Option<String>,
+    validator_exit: Arc<std::sync::RwLock<Exit>>,
+) -> Option<JoinHandle<()>> {
+    #[cfg(not(windows))]
+    {
+        use log::info;
+        let mut signals =
+            Signals::new([SIGTERM, SIGUSR1]).expect("Unexpeted error creating signal handler"); // TODO error handling
+        Some(
+            std::thread::Builder::new()
+                .name("solSignalHandler".into())
+                .spawn(move || {
+                    for signal in signals.forever() {
+                        match signal {
+                            SIGTERM => {
+                                info!("Validator received SIGTERM. Initiating graceful exit.");
+                                validator_exit.write().unwrap().exit();
+                            }
+                            SIGUSR1 => {
+                                match logfile {
+                                    None => {
+                                        solana_logger::setup_with_default_filter();
+                                        // None
+                                    }
+                                    Some(ref logfile) => {
+                                        info!(
+                                            "received SIGUSR1 ({}), reopening log file: {:?}",
+                                            signal, logfile
+                                        );
+                                        redirect_stderr(&logfile);
+                                    }
+                                }
+                            }
+                            _ => { // TODO ERROR unknown signal
+                            }
+                        }
+                    }
+                })
+                .unwrap(), // TODO handle error
+        )
+    }
+    #[cfg(not(unix))]
+    {
+        println!("logrotate is not supported on this platform");
+        solana_logger::setup_file_with_default(&logfile, solana_logger::DEFAULT_FILTER);
+        None
     }
 }
 

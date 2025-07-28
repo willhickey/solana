@@ -1,16 +1,19 @@
 #![allow(clippy::arithmetic_side_effects)]
+#[cfg(not(target_os = "windows"))]
+use signal_hook::{consts::SIGTERM, consts::SIGUSR1, iterator::Signals};
 pub use solana_test_validator as test_validator;
 use {
     console::style,
     fd_lock::{RwLock, RwLockWriteGuard},
     indicatif::{ProgressDrawTarget, ProgressStyle},
+    solana_validator_exit::Exit,
     std::{
         borrow::Cow,
-        env,
         fmt::Display,
         fs::{File, OpenOptions},
         path::Path,
         process::exit,
+        sync::Arc,
         thread::JoinHandle,
         time::Duration,
     },
@@ -33,55 +36,55 @@ fn redirect_stderr(filename: &str) {
     }
 }
 
-// Redirect stderr to a file with support for logrotate by sending a SIGUSR1 to the process.
-//
-// Upon success, future `log` macros and `eprintln!()` can be found in the specified log file.
-pub fn redirect_stderr_to_file(logfile: Option<String>) -> Option<JoinHandle<()>> {
-    // Default to RUST_BACKTRACE=1 for more informative validator logs
-    if env::var_os("RUST_BACKTRACE").is_none() {
-        env::set_var("RUST_BACKTRACE", "1")
-    }
-
-    match logfile {
-        None => {
-            solana_logger::setup_with_default_filter();
-            None
+#[cfg_attr(not(unix), allow(unused_variables))]
+fn create_signal_handler_thread(
+    logfile: Option<String>,
+    validator_exit: Arc<std::sync::RwLock<Exit>>,
+) -> Option<JoinHandle<()>> {
+    #[cfg(unix)]
+    {
+        solana_logger::setup_with_default_filter();
+        if let Some(ref logfile) = logfile {
+            redirect_stderr(logfile);
         }
-        Some(logfile) => {
-            #[cfg(unix)]
-            {
-                use log::info;
-                let mut signals =
-                    signal_hook::iterator::Signals::new([signal_hook::consts::SIGUSR1])
-                        .unwrap_or_else(|err| {
-                            eprintln!("Unable to register SIGUSR1 handler: {err:?}");
-                            exit(1);
-                        });
 
-                solana_logger::setup_with_default_filter();
-                redirect_stderr(&logfile);
-                Some(
-                    std::thread::Builder::new()
-                        .name("solSigUsr1".into())
-                        .spawn(move || {
-                            for signal in signals.forever() {
+        use log::{info, warn};
+        let mut signals = Signals::new([SIGTERM, SIGUSR1]).unwrap_or_else(|err| {
+            eprintln!("Unable to register SIGUSR1 handler: {err:?}");
+            exit(1);
+        });
+
+        std::thread::Builder::new()
+            .name("solSigHandler".into())
+            .spawn(move || {
+                for signal in signals.forever() {
+                    match signal {
+                        SIGTERM => {
+                            info!("Received SIGTERM ({}). Initiating graceful exit.", signal);
+                            validator_exit.write().unwrap().exit();
+                        }
+                        SIGUSR1 => {
+                            if let Some(ref logfile) = logfile {
                                 info!(
-                                    "received SIGUSR1 ({}), reopening log file: {:?}",
+                                    "Received SIGUSR1 ({}), reopening log file: {:?}",
                                     signal, logfile
                                 );
-                                redirect_stderr(&logfile);
+                                redirect_stderr(logfile);
                             }
-                        })
-                        .unwrap(),
-                )
-            }
-            #[cfg(not(unix))]
-            {
-                println!("logrotate is not supported on this platform");
-                solana_logger::setup_file_with_default(&logfile, solana_logger::DEFAULT_FILTER);
-                None
-            }
+                        }
+                        s => warn!("Received unknown signal: {}", s),
+                    }
+                }
+            })
+            .ok()
+    }
+    #[cfg(not(unix))]
+    {
+        if let Some(logfile) = logfile {
+            solana_logger::setup_file_with_default(&logfile, solana_logger::DEFAULT_FILTER);
         }
+        println!("Signal handling is not supported on this platform.");
+        None
     }
 }
 

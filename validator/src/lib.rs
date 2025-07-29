@@ -9,6 +9,7 @@ use {
     solana_validator_exit::Exit,
     std::{
         borrow::Cow,
+        env,
         fmt::Display,
         fs::{File, OpenOptions},
         path::Path,
@@ -41,6 +42,11 @@ fn create_signal_handler_thread(
     logfile: Option<String>,
     validator_exit: Arc<std::sync::RwLock<Exit>>,
 ) -> Option<JoinHandle<()>> {
+    // Default to RUST_BACKTRACE=1 for more informative validator logs
+    if env::var_os("RUST_BACKTRACE").is_none() {
+        env::set_var("RUST_BACKTRACE", "1")
+    }
+
     #[cfg(unix)]
     {
         solana_logger::setup_with_default_filter();

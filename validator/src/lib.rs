@@ -80,10 +80,15 @@ fn create_signal_handler_thread(
     }
     #[cfg(not(unix))]
     {
-        if let Some(logfile) = logfile {
-            solana_logger::setup_file_with_default(&logfile, solana_logger::DEFAULT_FILTER);
-        }
         println!("Signal handling is not supported on this platform.");
+        match logfile {
+            Some(logfile) => {
+                solana_logger::setup_file_with_default(&logfile, solana_logger::DEFAULT_FILTER);
+            }
+            None => {
+                solana_logger::setup_with_default_filter();
+            }
+        }
         None
     }
 }

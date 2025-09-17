@@ -15,7 +15,6 @@ use {
     solana_pubkey::Pubkey,
     solana_streamer::socket::SocketAddrSpace,
     std::{
-        collections::HashSet,
         error,
         net::{IpAddr, Ipv4Addr, SocketAddr},
         process::exit,
@@ -321,8 +320,6 @@ fn parse_entrypoints(matches: &ArgMatches) -> Vec<SocketAddr> {
         .into_iter()
         .map(|entrypoint| solana_net_utils::parse_host_port(&entrypoint))
         .filter_map(Result::ok)
-        .collect::<HashSet<_>>()
-        .into_iter()
         .collect::<Vec<_>>()
 }
 

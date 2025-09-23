@@ -669,7 +669,7 @@ fn do_blockstore_process_command(ledger_path: &Path, matches: &ArgMatches<'_>) -
 
             use {
                 solana_net_utils::bind_to_unspecified,
-                solana_streamer::packet::{Packet, PacketBatch},
+                solana_streamer::packet::{Packet, PinnedPacketBatch},
                 std::net::SocketAddr,
             };
 
@@ -690,7 +690,7 @@ fn do_blockstore_process_command(ledger_path: &Path, matches: &ArgMatches<'_>) -
                     break;
                 }
                 let data_shreds = source.slot_data_iterator(slot, 0)?;
-                let mut packet_batch = PacketBatch::with_capacity(1024);
+                let mut packet_batch = PinnedPacketBatch::with_capacity(1024);
 
                 for (_, shred_bytes) in data_shreds {
                     let length = shred_bytes.len();

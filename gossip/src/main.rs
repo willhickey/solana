@@ -181,7 +181,6 @@ fn parse_matches() -> ArgMatches<'static> {
 ///     a. bind-address
 ///     b. gossip-host
 /// 2. connect to entrypoints to determine my public IP address
-/// 3. default to localhost
 fn parse_bind_address(matches: &ArgMatches, entrypoint_addrs: &[SocketAddr]) -> IpAddr {
     if let Some(bind_address) = matches.value_of("bind_address") {
         solana_net_utils::parse_host(bind_address).unwrap_or_else(|e| {
@@ -197,7 +196,8 @@ fn parse_bind_address(matches: &ArgMatches, entrypoint_addrs: &[SocketAddr]) -> 
     } else if let Some(bind_addr) = get_bind_address_from_entrypoints(entrypoint_addrs) {
         bind_addr
     } else {
-        IpAddr::V4(Ipv4Addr::LOCALHOST)
+        eprintln!("Failed to find a valid bind address. Bind address can be provided directly with --bind-address or by the entrypoint functioning as an ip echo server.");
+        exit(1);
     }
 }
 

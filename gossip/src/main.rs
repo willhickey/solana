@@ -177,8 +177,8 @@ fn parse_matches() -> ArgMatches<'static> {
 
 /// Determine bind address by checking these sources in order:
 /// 1. cli args:
-///     a. bind-address
-///     b. gossip-host
+///    a. bind-address
+///    b. gossip-host
 /// 2. connect to entrypoints to determine my public IP address
 fn parse_bind_address(matches: &ArgMatches, entrypoint_addrs: &[SocketAddr]) -> IpAddr {
     if let Some(bind_address) = matches.value_of("bind_address") {
@@ -195,7 +195,10 @@ fn parse_bind_address(matches: &ArgMatches, entrypoint_addrs: &[SocketAddr]) -> 
     } else if let Some(bind_addr) = get_bind_address_from_entrypoints(entrypoint_addrs) {
         bind_addr
     } else {
-        eprintln!("Failed to find a valid bind address. Bind address can be provided directly with --bind-address or by the entrypoint functioning as an ip echo server.");
+        eprintln!(
+            "Failed to find a valid bind address. Bind address can be provided directly with \
+             --bind-address or by the entrypoint functioning as an ip echo server."
+        );
         exit(1);
     }
 }

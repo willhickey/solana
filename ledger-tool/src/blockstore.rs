@@ -28,6 +28,11 @@ use {
         blockstore_options::AccessType,
         shred::Shred,
     },
+    solana_net_utils::bind_to_unspecified,
+    solana_streamer::{
+        packet::{Packet, PinnedPacketBatch},
+        sendmmsg::batch_send,
+    },
     std::{
         borrow::Cow,
         collections::{BTreeMap, BTreeSet, HashMap},
@@ -332,6 +337,28 @@ pub fn blockstore_subcommands<'a, 'b>(hidden: bool) -> Vec<App<'a, 'b>> {
                     .value_name("DIR")
                     .takes_value(true)
                     .help("Target ledger directory to write inner \"rocksdb\" within."),
+            ),
+        SubCommand::with_name("stream-shreds")
+            .about("Stream shreds from a local blockstore to the TVU port of a validator")
+            .settings(&hidden)
+            .arg(&starting_slot_arg)
+            .arg(&ending_slot_arg)
+            .arg(
+                Arg::with_name("target")
+                    .long("target")
+                    .value_name("HOST:PORT")
+                    .takes_value(true)
+                    .default_value("localhost:8002")
+                    .validator(solana_net_utils::is_host_port)
+                    .help("The host and tvu port to send the shreds to"),
+            )
+            .arg(
+                Arg::with_name("packets_per_batch")
+                    .long("packets-per-batch")
+                    .value_name("NUM")
+                    .takes_value(true)
+                    .default_value("1024")
+                    .help("Packets per batch"),
             ),
         SubCommand::with_name("dead-slots")
             .about("Print all the dead slots in the ledger")
@@ -1039,6 +1066,49 @@ fn do_blockstore_process_command(ledger_path: &Path, matches: &ArgMatches<'_>) -
                     verbose_level,
                     &mut HashMap::new(),
                 )?;
+            }
+        }
+        ("stream-shreds", Some(arg_matches)) => {
+            let starting_slot = value_t_or_exit!(arg_matches, "starting_slot", Slot);
+            let ending_slot = value_t_or_exit!(arg_matches, "ending_slot", Slot);
+            let packets_per_batch = value_t_or_exit!(arg_matches, "packets_per_batch", usize);
+
+            let source = crate::open_blockstore(&ledger_path, arg_matches, AccessType::Secondary);
+
+            let destination_addr = matches
+                .value_of("target")
+                .map(|target_host| {
+                    solana_net_utils::parse_host_port(target_host).unwrap_or_else(|e| {
+                        eprintln!("Failed to parse target address: {e}");
+                        std::process::exit(1);
+                    })
+                })
+                .unwrap();
+            let socket = bind_to_unspecified().unwrap();
+
+            for (slot, _meta) in source.slot_meta_iterator(starting_slot)? {
+                if slot > ending_slot {
+                    break;
+                }
+                let data_shreds = source.slot_data_iterator(slot, 0)?;
+                let mut packet_batch = PinnedPacketBatch::with_capacity(packets_per_batch);
+
+                for (_, shred_bytes) in data_shreds {
+                    let length = shred_bytes.len();
+
+                    let mut packet = Packet::default();
+                    packet.buffer_mut()[..length].copy_from_slice(&shred_bytes);
+                    packet.meta_mut().size = length;
+                    packet.meta_mut().set_socket_addr(&destination_addr);
+
+                    packet_batch.push(packet);
+                }
+
+                let data_and_addrs = packet_batch
+                    .iter()
+                    .map(|packet| (packet.data(..).unwrap(), packet.meta().socket_addr()));
+
+                batch_send(&socket, data_and_addrs).unwrap();
             }
         }
         _ => unreachable!(),

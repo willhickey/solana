@@ -12,7 +12,6 @@ on:
 
 jobs:
   version-bump:
-    if: github.repository == 'willlhickey/solana'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -79,7 +78,6 @@ jobs:
           message: ":github: Triggered from a GitHub Action"
 
   draft-release:
-    if: github.repository == 'willlhickey/solana'
     runs-on: ubuntu-latest
     steps:
       - name: Create Release

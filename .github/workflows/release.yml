@@ -1,9 +1,14 @@
 name: Release
 
 on:
-  push:
-    tags:
-      - "*"
+  workflow_dispatch:
+    inputs:
+      # maybe instead of tag the user just passes in "major, minor, patch, special?"
+      tag:
+        type: string
+        required: true
+        description: "Tag for the new release"
+
 
 jobs:
   trigger-buildkite-pipeline:

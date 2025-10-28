@@ -49,7 +49,11 @@ PRERELEASE_NUMBER=""
 semverParseInto "$(readCargoVariable version Cargo.toml)" MAJOR MINOR PATCH PRERELEASE_STAGE PRERELEASE_NUMBER
 [[ -n $MAJOR ]] || usage
 
-currentVersion="$MAJOR\.$MINOR\.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
+prerelease=""
+if [[ -n $PRERELEASE_STAGE || -n $PRERELEASE_NUMBER ]]; then
+  prerelease="$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
+fi
+currentVersion="$MAJOR\.$MINOR\.$PATCH$prerelease"
 
 bump=$1
 if [[ -z $bump ]]; then
@@ -139,7 +143,11 @@ esac
   fi
 )
 
-newVersion="$MAJOR.$MINOR.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
+new_prerelease=""
+if [[ -n $PRERELEASE_STAGE || -n $PRERELEASE_NUMBER ]]; then
+  new_prerelease="$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
+fi
+newVersion="$MAJOR.$MINOR.$PATCH$new_prerelease"
 echo "currentVersion: $currentVersion"
 echo "newVersion: $newVersion"
 

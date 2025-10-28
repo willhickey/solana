@@ -140,6 +140,8 @@ esac
 )
 
 newVersion="$MAJOR.$MINOR.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
+echo "currentVersion: $currentVersion"
+echo "newVersion: $newVersion"
 
 # Update all the Cargo.toml files
 for Cargo_toml in "${Cargo_tomls[@]}"; do
@@ -151,6 +153,7 @@ for Cargo_toml in "${Cargo_tomls[@]}"; do
   # Set new crate version
   (
     set -x
+    echo "Cargo_toml: $Cargo_toml"
     sed -i "$Cargo_toml" -e "s/^version = \"$currentVersion\"$/version = \"$newVersion\"/"
   )
 

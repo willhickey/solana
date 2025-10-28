@@ -18,8 +18,8 @@ is_crate_version_uploaded() {
   exit 0
 }
 
-semverParseInto "$CI_TAG" MAJOR MINOR PATCH SPECIAL
-expectedCrateVersion="$MAJOR.$MINOR.$PATCH$SPECIAL"
+semverParseInto "$CI_TAG" MAJOR MINOR PATCH PRERELEASE_STAGE PRERELEASE_NUMBER
+expectedCrateVersion="$MAJOR.$MINOR.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
 
 [[ -n "$CRATES_IO_TOKEN" ]] || {
   echo CRATES_IO_TOKEN undefined

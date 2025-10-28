@@ -43,16 +43,17 @@ done
 MAJOR=0
 MINOR=0
 PATCH=0
-SPECIAL=""
+PRERELEASE_STAGE=""
+PRERELEASE_NUMBER=""
 
-semverParseInto "$(readCargoVariable version Cargo.toml)" MAJOR MINOR PATCH SPECIAL
+semverParseInto "$(readCargoVariable version Cargo.toml)" MAJOR MINOR PATCH PRERELEASE_STAGE PRERELEASE_NUMBER
 [[ -n $MAJOR ]] || usage
 
-currentVersion="$MAJOR\.$MINOR\.$PATCH$SPECIAL"
+currentVersion="$MAJOR\.$MINOR\.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
 
 bump=$1
 if [[ -z $bump ]]; then
-  if [[ -n $SPECIAL ]]; then
+  if [[ -n $PRERELEASE_STAGE ]]; then
     bump=dropspecial # Remove prerelease tag
   else
     bump=minor
@@ -61,34 +62,41 @@ fi
 
 # Figure out what to increment
 case $bump in
-prerelease)
-  if [[ "$SPECIAL" == "-alpha" ]]; then
-    SPECIAL="-beta"
-  elif [[ "$SPECIAL" == "-beta" ]]; then
-    SPECIAL=""
+prerelease-number)
+  PRERELEASE_NUMBER=$((PRERELEASE_NUMBER + 1))
+;;
+prerelease-stage)
+  if [[ "$PRERELEASE_STAGE" == "-alpha" ]]; then
+    PRERELEASE_STAGE="-beta"
+  elif [[ "$PRERELEASE_STAGE" == "-beta" ]]; then
+    PRERELEASE_STAGE="-rc"
+  elif [[ "$PRERELEASE_STAGE" == "-rc" ]]; then
+    PRERELEASE_STAGE=""
   else
-    echo "Error: Only '-alpha' and '-beta' prerelease can be bumped. Current prerelease value is: $SPECIAL"
+    echo "Error: Only '-alpha', '-beta', and '-rc' prerelease can be bumped. Current prerelease value is: $PRERELEASE_STAGE"
     exit 1
   fi
   ;;
 patch)
   PATCH=$((PATCH + 1))
-  if [[ "$SPECIAL" == "-alpha" ]]; then
-    SPECIAL="-beta"
-  fi
+  PRERELEASE_STAGE=""
+  PRERELEASE_NUMBER=""
   ;;
 major)
   MAJOR=$((MAJOR+ 1))
   MINOR=0
   PATCH=0
-  SPECIAL="-alpha"
+  PRERELEASE_STAGE="-alpha"
+  PRERELEASE_NUMBER=0
   ;;
 minor)
   MINOR=$((MINOR+ 1))
   PATCH=0
-  SPECIAL="-alpha"
+  PRERELEASE_STAGE="-alpha"
+  PRERELEASE_NUMBER=0
   ;;
 dropspecial)
+# TODO does this work?
   ;;
 check)
   badTomls=()
@@ -131,7 +139,7 @@ esac
   fi
 )
 
-newVersion="$MAJOR.$MINOR.$PATCH$SPECIAL"
+newVersion="$MAJOR.$MINOR.$PATCH$PRERELEASE_STAGE.$PRERELEASE_NUMBER"
 
 # Update all the Cargo.toml files
 for Cargo_toml in "${Cargo_tomls[@]}"; do

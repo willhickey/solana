@@ -123,6 +123,10 @@ impl XdpRetransmitter {
             caps::raise(None, CapSet::Effective, cap)
                 .map_err(|e| format!("failed to raise {cap:?} capability: {e}"))?;
         }
+        for cap in [CAP_NET_ADMIN, CAP_NET_RAW, CAP_BPF, CAP_PERFMON] {
+            caps::drop(None, CapSet::Effective, cap).unwrap();
+        }
+
 
         let dev = Arc::new(if let Some(interface) = config.interface {
             NetworkDevice::new(interface).unwrap()
@@ -135,10 +139,6 @@ impl XdpRetransmitter {
         } else {
             None
         };
-
-        for cap in [CAP_NET_ADMIN, CAP_NET_RAW, CAP_BPF, CAP_PERFMON] {
-            caps::drop(None, CapSet::Effective, cap).unwrap();
-        }
 
         let (senders, receivers) = (0..config.cpus.len())
             .map(|_| crossbeam_channel::bounded(config.rtx_channel_cap))

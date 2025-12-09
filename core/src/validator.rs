@@ -2791,6 +2791,11 @@ fn get_stake_percent_in_gossip(bank: &Bank, cluster_info: &ClusterInfo, log: boo
     // Nodes contact infos are saved to disk and restored on validator startup.
     // Staked nodes entries will not expire until an epoch after. So it
     // is necessary here to filter for recent entries to establish liveness.
+
+    //Get gossip peers and tvu peers for logging below
+    let tvu_peers = cluster_info.tvu_peers(ContactInfo::clone);
+    let gossip_peers = cluster_info.gossip_peers();
+
     let peers: HashMap<_, _> = cluster_info
         .tvu_peers(ContactInfo::clone)
         .into_iter()
@@ -2835,6 +2840,8 @@ fn get_stake_percent_in_gossip(bank: &Bank, cluster_info: &ClusterInfo, log: boo
 
     let online_stake_percentage = (online_stake as f64 / total_activated_stake as f64) * 100.;
     if log {
+        trace!("cluster_info tvu_peers: {:?}", tvu_peers);
+        trace!("cluster_info gossip_peers: {:?}", gossip_peers);
         trace!("cluster_info peers: {:?}", peers);
         info!("{online_stake_percentage:.3}% of active stake visible in gossip");
 

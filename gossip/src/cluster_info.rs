@@ -2007,6 +2007,7 @@ impl ClusterInfo {
                 }
             }
         };
+
         let mut pings = Vec::new();
         let mut rng = rand::thread_rng();
         let keypair = self.keypair();

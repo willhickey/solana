@@ -251,6 +251,11 @@ impl ContactInfo {
     }
 
     #[inline]
+    pub fn outset(&self) -> u64 {
+        self.outset
+    }
+
+    #[inline]
     pub(crate) fn version(&self) -> &solana_version::Version {
         &self.version
     }

@@ -84,6 +84,16 @@ pub struct Crds {
     // Mapping from nodes' pubkeys to their respective shred-version.
     shred_versions: HashMap<Pubkey, u16>,
     stats: Mutex<CrdsStats>,
+    contact_infos_rx: HashMap<
+        Pubkey,
+        (
+            /* wallclock */ u64,
+            /*shred version*/ u16,
+            /* outset */ u64,
+            /* version */ solana_version::Version,
+        ),
+    >,
+    last_dump_time: u64, // Timestamp of last dump_contact_infos_rx call
 }
 
 #[derive(PartialEq, Eq, Debug)]
@@ -181,6 +191,8 @@ impl Default for Crds {
             purged: VecDeque::default(),
             shred_versions: HashMap::default(),
             stats: Mutex::<CrdsStats>::default(),
+            contact_infos_rx: HashMap::default(),
+            last_dump_time: 0,
         }
     }
 }
@@ -226,6 +238,14 @@ impl Crds {
         now: u64,
         route: GossipRoute,
     ) -> Result<(), CrdsError> {
+        // Call dump_contact_infos_rx every 30 seconds
+        const DUMP_INTERVAL_MS: u64 = 30_000; // 30 seconds in milliseconds
+        if now.saturating_sub(self.last_dump_time) > DUMP_INTERVAL_MS {
+            self.dump_contact_infos_rx();
+            self.last_dump_time = now;
+            self.contact_infos_rx.clear();
+        }
+
         let label = value.label();
         let pubkey = value.pubkey();
         let value = VersionedCrdsValue::new(value, self.cursor, now, route);
@@ -239,6 +259,15 @@ impl Crds {
                     CrdsData::ContactInfo(node) => {
                         self.nodes.insert(entry_index);
                         self.shred_versions.insert(pubkey, node.shred_version());
+                        self.contact_infos_rx.insert(
+                            pubkey,
+                            (
+                                node.wallclock(),
+                                node.shred_version(),
+                                node.outset(),
+                                node.version().clone(),
+                            ),
+                        );
                     }
                     CrdsData::Vote(_, _) => {
                         self.votes.insert(value.ordinal, entry_index);
@@ -268,6 +297,15 @@ impl Crds {
                         // self.nodes does not need to be updated since the
                         // entry at this index was and stays contact-info.
                         debug_assert_matches!(entry.get().value.data(), CrdsData::ContactInfo(_));
+                        self.contact_infos_rx.insert(
+                            pubkey,
+                            (
+                                node.wallclock(),
+                                node.shred_version(),
+                                node.outset(),
+                                node.version().clone(),
+                            ),
+                        );
                     }
                     CrdsData::Vote(_, _) => {
                         self.votes.remove(&entry.get().ordinal);
@@ -319,6 +357,15 @@ impl Crds {
                     Err(CrdsError::InsertFailed)
                 }
             }
+        }
+    }
+
+    fn dump_contact_infos_rx(&self) {
+        info!("Contact infos RX:");
+        for (pubkey, (wallclock, shred_version, outset, version)) in self.contact_infos_rx.iter() {
+            info!(
+                "    ci_rx: pk: {pubkey}, wc: {wallclock}, sv: {shred_version}, outset: {outset}, version: {version}"
+            );
         }
     }
 

@@ -3686,6 +3686,8 @@ pub mod rpc_full {
                             version,
                             feature_set,
                             shred_version: Some(my_shred_version),
+                            wallclock: Some(contact_info.wallclock()),
+                            outset: Some(contact_info.outset()),
                         })
                     } else {
                         None // Exclude spy nodes

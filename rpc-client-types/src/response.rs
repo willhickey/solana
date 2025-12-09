@@ -321,6 +321,8 @@ pub struct RpcContactInfo {
     pub feature_set: Option<u32>,
     /// Shred version
     pub shred_version: Option<u16>,
+    pub wallclock: Option<u64>,
+    pub outset: Option<u64>,
 }
 
 /// Map of leader base58 identity pubkeys to the slot indices relative to the first epoch slot

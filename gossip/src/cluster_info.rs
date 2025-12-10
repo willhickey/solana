@@ -2023,6 +2023,7 @@ impl ClusterInfo {
                 true
             } else {
                 self.stats.num_unverifed_gossip_addrs.add_relaxed(1);
+                trace!("verify_gossip_addr failed: {:?}", *value.data());
                 false
             }
         };
